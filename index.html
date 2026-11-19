@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mohan Chhabaria</title>
+<meta name="description" content="Mohan Chhabaria, backend and distributed systems engineer. LLM evaluation pipelines, real-time schedulers, Postgres performance.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Layout idea: an engineer's run log. Left rail of mono labels, right column of work; the hero is a live session scheduler. */
+:root {
+  --bg: #F3F4F1;
+  --surface: #FFFFFF;
+  --ink: #15171C;
+  --muted: #5C626D;
+  --rule: #DADDD6;
+  --accent: #2648D6;
+  --accent-soft: #E3E8FB;
+  --drain: #B4B9C2;
+  --font-display: "Bricolage Grotesque", "Helvetica Neue", Arial, sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #101216; --surface: #171A20; --ink: #E9EBEF; --muted: #969CA8;
+    --rule: #2A2E36; --accent: #8098FF; --accent-soft: #1E2645; --drain: #4A505B;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #101216; --surface: #171A20; --ink: #E9EBEF; --muted: #969CA8;
+  --rule: #2A2E36; --accent: #8098FF; --accent-soft: #1E2645; --drain: #4A505B;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--font-body); font-size: 16.5px; line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+a:hover { text-decoration-thickness: 2px; }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; margin: 0; }
+.mono { font-family: var(--font-mono); }
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+
+/* Top bar */
+.top { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 22px 0; font-family: var(--font-mono); font-size: 13px; color: var(--muted); flex-wrap: wrap; }
+.top nav { display: flex; gap: 20px; flex-wrap: wrap; }
+.top nav a { color: var(--muted); text-decoration: none; }
+.top nav a:hover { color: var(--ink); }
+.status { display: inline-flex; align-items: center; gap: 8px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: #1F9D55; box-shadow: 0 0 0 3px color-mix(in srgb, #1F9D55 22%, transparent); }
+
+/* Hero */
+.hero { padding: 40px 0 28px; display: grid; gap: 28px; }
+.hero h1 { font-size: clamp(46px, 8.4vw, 104px); font-weight: 800; line-height: 0.92; letter-spacing: -0.035em; }
+.hero h1 span { color: var(--accent); }
+.lede { font-size: clamp(18px, 2.1vw, 21px); max-width: 40ch; color: var(--ink); margin: 0; }
+.lede em { font-style: normal; color: var(--muted); }
+.hero-meta { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+.btn { font-family: var(--font-mono); font-size: 13.5px; padding: 10px 16px; border: 1px solid var(--ink); color: var(--ink); text-decoration: none; border-radius: 3px; background: transparent; }
+.btn.primary { background: var(--ink); color: var(--bg); }
+.btn:hover { text-decoration: none; background: var(--accent); border-color: var(--accent); color: #fff; }
+
+/* Scheduler viz */
+.sched { border: 1px solid var(--rule); background: var(--surface); border-radius: 4px; overflow: hidden; }
+.sched-head { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 10px 14px; border-bottom: 1px solid var(--rule); font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+.sched-head b { color: var(--ink); font-weight: 500; }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; }
+.legend i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+#viz { display: block; width: 100%; height: 200px; }
+.sched-foot { padding: 8px 14px; border-top: 1px solid var(--rule); font-family: var(--font-mono); font-size: 12px; color: var(--muted); display: flex; gap: 18px; flex-wrap: wrap; font-variant-numeric: tabular-nums; }
+
+/* Numbers strip */
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 1px solid var(--ink); border-bottom: 1px solid var(--rule); margin: 48px 0 0; }
+.stat { padding: 18px 16px 18px 0; display: grid; gap: 4px; }
+.stat + .stat { padding-left: 16px; border-left: 1px solid var(--rule); }
+.stat .n { font-family: var(--font-display); font-size: clamp(28px, 3.6vw, 40px); font-weight: 700; letter-spacing: -0.02em; line-height: 1; font-variant-numeric: tabular-nums; }
+.stat .l { font-size: 13.5px; color: var(--muted); line-height: 1.4; }
+
+/* Sections */
+section.block { display: grid; grid-template-columns: 180px 1fr; gap: 32px; padding: 64px 0 8px; }
+.rail { font-family: var(--font-mono); font-size: 12.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; padding-top: 8px; }
+.rail b { display: block; color: var(--accent); font-weight: 500; }
+section.block h2 { font-size: clamp(28px, 3.4vw, 38px); font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; margin-bottom: 24px; }
+
+/* Work entries */
+.work { display: grid; gap: 0; }
+.case { display: grid; grid-template-columns: 1fr 190px; gap: 24px; padding: 24px 0; border-top: 1px solid var(--rule); }
+.case:last-child { border-bottom: 1px solid var(--rule); }
+.case h3 { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; margin-bottom: 6px; }
+.case p { margin: 0 0 10px; max-width: 62ch; }
+.tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+.tag { font-family: var(--font-mono); font-size: 11.5px; padding: 2px 8px; border-radius: 2px; background: var(--accent-soft); color: var(--ink); }
+.metric { text-align: right; align-self: start; }
+.metric .big { font-family: var(--font-mono); font-size: 22px; font-weight: 500; color: var(--accent); line-height: 1.2; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.metric .small { font-size: 13px; color: var(--muted); line-height: 1.4; margin-top: 4px; }
+
+/* Experience */
+.job { display: grid; grid-template-columns: 1fr auto; gap: 4px 24px; padding: 20px 0; border-top: 1px solid var(--rule); }
+.job:last-child { border-bottom: 1px solid var(--rule); }
+.job h3 { font-size: 20px; font-weight: 700; }
+.job .role { color: var(--muted); }
+.job .when { font-family: var(--font-mono); font-size: 13px; color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+.job ul { grid-column: 1 / -1; margin: 10px 0 0; padding-left: 18px; max-width: 70ch; }
+.job li { margin: 4px 0; }
+.job li::marker { color: var(--accent); }
+
+/* Research */
+.paper { background: var(--surface); border: 1px solid var(--rule); border-left: 3px solid var(--accent); padding: 22px 24px; border-radius: 3px; display: grid; gap: 10px; }
+.paper .venue { font-family: var(--font-mono); font-size: 12.5px; color: var(--muted); }
+.paper h3 { font-size: 22px; font-weight: 700; }
+.paper p { margin: 0; max-width: 66ch; }
+
+/* Two-col lists */
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px 40px; }
+.item h3 { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+.item p { margin: 0; color: var(--ink); }
+.item .sub { font-family: var(--font-mono); font-size: 12.5px; color: var(--muted); margin-bottom: 6px; }
+
+.skills { display: grid; gap: 14px; }
+.skillrow { display: grid; grid-template-columns: 160px 1fr; gap: 16px; padding-bottom: 14px; border-bottom: 1px solid var(--rule); }
+.skillrow:last-child { border-bottom: 0; }
+.skillrow .k { font-family: var(--font-mono); font-size: 13px; color: var(--muted); padding-top: 2px; }
+
+.ach { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
+.ach li { display: grid; grid-template-columns: 64px 1fr; gap: 16px; padding: 12px 0; border-top: 1px solid var(--rule); }
+.ach li:last-child { border-bottom: 1px solid var(--rule); }
+.ach .y { font-family: var(--font-mono); font-size: 13px; color: var(--accent); padding-top: 2px; }
+
+/* Contact */
+.contact { margin: 80px 0 0; padding: 48px 0 56px; border-top: 1px solid var(--ink); display: grid; gap: 18px; }
+.contact h2 { font-size: clamp(34px, 5.6vw, 64px); font-weight: 800; letter-spacing: -0.03em; line-height: 1; }
+.contact p { margin: 0; max-width: 52ch; color: var(--muted); }
+.contact .links { display: flex; gap: 12px; flex-wrap: wrap; }
+.copyline { font-family: var(--font-mono); font-size: 13px; color: var(--muted); }
+footer { padding: 0 0 40px; font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+
+@media (max-width: 820px) {
+  section.block { grid-template-columns: 1fr; gap: 8px; padding-top: 48px; }
+  .stats { grid-template-columns: 1fr 1fr; }
+  .stat:nth-child(3) { padding-left: 0; border-left: 0; }
+  .stat:nth-child(n+3) { border-top: 1px solid var(--rule); }
+  .case { grid-template-columns: 1fr; gap: 8px; }
+  .metric { text-align: left; order: -1; }
+  .grid2 { grid-template-columns: 1fr; }
+}
+@media (max-width: 480px) {
+  .skillrow { grid-template-columns: 1fr; gap: 4px; }
+  .job { grid-template-columns: 1fr; }
+  .job .when { text-align: left; }
+  #viz { height: 170px; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <span class="status"><span class="dot" aria-hidden="true"></span>Backend engineer · Bengaluru</span>
+  <nav aria-label="Sections">
+    <a href="#work">Work</a>
+    <a href="#experience">Experience</a>
+    <a href="#research">Research</a>
+    <a href="#contact">Contact</a>
+  </nav>
+</header>
+
+<section class="hero" aria-labelledby="name">
+  <h1 id="name">Mohan<br>Chhabaria<span>.</span></h1>
+  <p class="lede">Backend engineer building systems that stay correct under load: LLM pipelines, real-time schedulers and fast Postgres. <em>SDE at Newton School, Bengaluru. IIT Jodhpur, 2023.</em></p>
+  <div class="hero-meta">
+    <a class="btn primary" href="#contact">Get in touch</a>
+    <a class="btn" href="https://github.com/mohanchhabaria1212">GitHub</a>
+    <a class="btn" href="https://www.linkedin.com/in/mohan-chhabaria/">LinkedIn</a>
+  </div>
+
+  <figure class="sched" style="margin:0">
+    <div class="sched-head">
+      <span><b>scheduler</b> · live AI interview sessions across pods</span>
+      <span class="legend"><span><i style="background:var(--accent)"></i>session</span><span><i style="background:var(--ink)"></i>active pod</span><span><i style="background:var(--drain)"></i>draining</span></span>
+    </div>
+    <canvas id="viz" aria-label="Animated sketch of a scheduler assigning sessions to pods; draining pods accept no new sessions and retire only once empty." role="img"></canvas>
+    <div class="sched-foot" aria-live="off">
+      <span>active <b id="m-active">0</b></span>
+      <span>draining <b id="m-drain">0</b></span>
+      <span>sessions <b id="m-sess">0</b></span>
+      <span>dropped <b id="m-drop">0</b></span>
+    </div>
+  </figure>
+</section>
+
+<div class="stats" role="list">
+  <div class="stat" role="listitem"><span class="n">15,400+</span><span class="l">sales calls evaluated by Argus</span></div>
+  <div class="stat" role="listitem"><span class="n">8s → 70ms</span><span class="l">bulk lead search after GIN trigram rewrite</span></div>
+  <div class="stat" role="listitem"><span class="n">−40%</span><span class="l">cost per acquisition via server-side Meta CAPI</span></div>
+  <div class="stat" role="listitem"><span class="n">36</span><span class="l">tools in a Rust MCP server for LLM agents</span></div>
+</div>
+
+<section class="block" id="work" aria-labelledby="work-h">
+  <div class="rail"><b>01</b>Selected work</div>
+  <div>
+    <h2 id="work-h">Systems I designed and own in production</h2>
+    <div class="work">
+
+      <article class="case">
+        <div>
+          <h3>Argus · LLM evaluation platform</h3>
+          <p>Scores sales calls against a rubric using LLMs. Replaced a paid vendor end to end. The Celery and Redis pipeline claims work idempotently, so retries and overlapping runs never duplicate work or repeat LLM spend. Every generated answer links back to the exact transcript span it came from.</p>
+          <div class="tags"><span class="tag">FastAPI</span><span class="tag">Celery</span><span class="tag">Redis</span><span class="tag">PostgreSQL</span><span class="tag">Next.js</span><span class="tag">AWS EKS</span></div>
+        </div>
+        <div class="metric"><div class="big">$0.011/min</div><div class="small">27% below the vendor it replaced · 1,430 hours of audio</div></div>
+      </article>
+
+      <article class="case">
+        <div>
+          <h3>Real-time session scheduler and autoscaler</h3>
+          <p>A Redis and Lua scheduler allocates live AI interview sessions to pods, with wait-window escalation and overflow handling. The autoscaling controller reads scheduler state (active and draining pods, a min-active floor, replica recommendations) so it can scale down without terminating sessions in flight.</p>
+          <div class="tags"><span class="tag">Redis</span><span class="tag">Lua</span><span class="tag">Kubernetes</span><span class="tag">FastAPI WebSockets</span><span class="tag">Pub/Sub</span></div>
+        </div>
+        <div class="metric"><div class="big">0 dropped</div><div class="small">sessions during scale events</div></div>
+      </article>
+
+      <article class="case">
+        <div>
+          <h3>Bulk lead search</h3>
+          <p>Matching 500 search terms against 42,000 rows took 8 seconds. Added Postgres trigram GIN indexes and rewrote the query so the planner actually uses them.</p>
+          <div class="tags"><span class="tag">PostgreSQL</span><span class="tag">pg_trgm</span><span class="tag">GIN</span><span class="tag">Query planning</span></div>
+        </div>
+        <div class="metric"><div class="big">114× faster</div><div class="small">8s → 70ms</div></div>
+      </article>
+
+      <article class="case">
+        <div>
+          <h3>Server-side conversion tracking (Meta CAPI)</h3>
+          <p>Sends qualified-lead and payment events to ad platforms, not just form fills. Reconstructs click IDs from fbclid, forwards IP and user agent on every event, and feeds lead stage back by webhook.</p>
+          <div class="tags"><span class="tag">Meta CAPI</span><span class="tag">Webhooks</span><span class="tag">Event pipelines</span></div>
+        </div>
+        <div class="metric"><div class="big">~30%</div><div class="small">of all qualified leads, at 40% lower CPA</div></div>
+      </article>
+
+      <article class="case">
+        <div>
+          <h3>LeadSquared MCP server in Rust</h3>
+          <p>A Model Context Protocol server that lets product and growth teams query the CRM through an LLM agent. Credentials are encrypted at rest and rate-limited calls retry transparently.</p>
+          <div class="tags"><span class="tag">Rust</span><span class="tag">MCP</span><span class="tag">LLM agents</span></div>
+        </div>
+        <div class="metric"><div class="big">36 tools</div><div class="small">exposed to agents</div></div>
+      </article>
+
+      <article class="case">
+        <div>
+          <h3>CRM integrations and Study Buddy</h3>
+          <p>Owned Salesforce and LeadSquared integrations end to end, including LeadSquared administration. Designed the backend and Postgres data model for Study Buddy, where students practise previous-year problems competitively.</p>
+          <div class="tags"><span class="tag">Salesforce</span><span class="tag">LeadSquared</span><span class="tag">PostgreSQL</span><span class="tag">Data modelling</span></div>
+        </div>
+        <div class="metric"><div class="big">~21,000</div><div class="small">leads synced</div></div>
+      </article>
+
+    </div>
+  </div>
+</section>
+
+<section class="block" id="experience" aria-labelledby="exp-h">
+  <div class="rail"><b>02</b>Experience</div>
+  <div>
+    <h2 id="exp-h">Three years shipping backend systems</h2>
+
+    <div class="job">
+      <div><h3>Newton School</h3><div class="role">Software Development Engineer · Bengaluru</div></div>
+      <div class="when">Dec 2024 – present</div>
+      <ul>
+        <li>Built Argus, the session scheduler and autoscaler, Meta CAPI tracking and a Rust MCP server (above).</li>
+        <li>Built a WebSocket backend on FastAPI and Redis Pub/Sub for real-time AI agent communication, with dynamic session routing and plug-in registries for custom AI workflows.</li>
+        <li>Owned CRM integrations with Salesforce and LeadSquared.</li>
+      </ul>
+    </div>
+
+    <div class="job">
+      <div><h3>Sprinklr</h3><div class="role">Software Development Engineer · Gurugram</div></div>
+      <div class="when">Sep 2023 – Dec 2024</div>
+      <ul>
+        <li>Wrote 500+ automated UI and backend tests with Selenium WebDriver and Java, covering all critical paths.</li>
+        <li>Built an OpenCV template-matching module to locate UI elements, cutting manual test maintenance.</li>
+        <li>Ran 20+ soak and stress tests comparing API encodings (gzip vs Brotli); wrote SQL reporting for conversational AI intent and entity usage.</li>
+      </ul>
+    </div>
+
+    <div class="job">
+      <div><h3>Health Compass</h3><div class="role">Backend Developer Intern · Gurugram</div></div>
+      <div class="when">Aug 2022 – Oct 2022</div>
+      <ul>
+        <li>Integrated the five building blocks of the Ayushman Bharat Digital Mission into a Django REST backend; added audit logging and ratings.</li>
+        <li>Automated incremental scraping to keep upstream APIs current, cutting manual effort by about 60%.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="research" aria-labelledby="res-h">
+  <div class="rail"><b>03</b>Research</div>
+  <div>
+    <h2 id="res-h">Publication</h2>
+    <article class="paper">
+      <div class="venue">IEEE · National Conference on Communications (NCC) 2023 · First author</div>
+      <h3>Limitations of the Perceptual Deadband Approach for Haptic Data Compression</h3>
+      <p>Haptic teleoperation systems save bandwidth by sending only samples that differ perceptibly from the last perceived force. We ran a psychophysical experiment with staircase force stimuli and trained a classifier on user responses. It showed that perception depends on both the current and previous stimuli, which the standard deadband model ignores.</p>
+      <div><a href="https://doi.org/10.1109/NCC56989.2023.10067964">DOI 10.1109/NCC56989.2023.10067964</a></div>
+    </article>
+
+    <div class="grid2" style="margin-top:40px">
+      <div class="item">
+        <div class="sub">NLP · TAT-QA</div>
+        <h3>Question answering over tables and text</h3>
+        <p>Two end-to-end pipelines using TAPAS, BART and T5 fine-tuned on TAT-QA. Reached 54% accuracy against a ~51% baseline and cut processing time by 40%.</p>
+      </div>
+      <div class="item">
+        <div class="sub">Web · IIT Jodhpur</div>
+        <h3>Career Development Cell portal</h3>
+        <p>Led the team that built the institute's placement portal for 900+ students and recruiters. Designed the backend and schema; moved the student dashboard to React.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="skills" aria-labelledby="sk-h">
+  <div class="rail"><b>04</b>Stack</div>
+  <div>
+    <h2 id="sk-h">Tools I reach for</h2>
+    <div class="skills">
+      <div class="skillrow"><div class="k">Languages</div><div>Python, C++, Java, Rust, Lua, SQL, C</div></div>
+      <div class="skillrow"><div class="k">Backend &amp; web</div><div>FastAPI, Django, REST, GraphQL, WebSockets, Node.js, React, Next.js, SQLAlchemy</div></div>
+      <div class="skillrow"><div class="k">Data &amp; infra</div><div>PostgreSQL, Redis, Celery, Docker, Kubernetes (EKS), AWS, Linux</div></div>
+      <div class="skillrow"><div class="k">AI &amp; ML</div><div>LLM pipelines and agents, MCP, PyTorch, TensorFlow, scikit-learn, OpenCV</div></div>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="achievements" aria-labelledby="ach-h">
+  <div class="rail"><b>05</b>Recognition</div>
+  <div>
+    <h2 id="ach-h">Along the way</h2>
+    <ul class="ach">
+      <li><span class="y">2023</span><span>Presented haptics paper at NCC, IIT Guwahati</span></li>
+      <li><span class="y">2022</span><span>Second place, Samsung NLP Challenge, Prometeo, IIT Jodhpur</span></li>
+      <li><span class="y">2022</span><span>Co-mentored the Inter-IIT Tech Meet 10.0 team on route optimisation</span></li>
+      <li><span class="y">2020</span><span>First place, Robo-Soccer, Prometeo, IIT Jodhpur</span></li>
+      <li><span class="y">2019</span><span>JEE Advanced, top 0.7 percentile of 1.3 million applicants</span></li>
+      <li><span class="y">—</span><span>Mentored DSA and web development students at AccioJob</span></li>
+    </ul>
+  </div>
+</section>
+
+<section class="contact" id="contact" aria-labelledby="ct-h">
+  <h2 id="ct-h">Say hello.</h2>
+  <p>Happy to talk distributed systems, data-heavy backends or LLM infrastructure.</p>
+  <div class="links">
+    <a class="btn primary" href="mailto:mchhabaria123@gmail.com">Email me</a>
+    <a class="btn" href="https://www.linkedin.com/in/mohan-chhabaria/">LinkedIn</a>
+    <a class="btn" href="https://github.com/mohanchhabaria1212">GitHub</a>
+  </div>
+  <div class="copyline">mchhabaria123@gmail.com</div>
+</section>
+
+<footer>© 2026 Mohan Chhabaria · Bengaluru</footer>
+</div>
+
+<script>
+(function () {
+  // Scheduler sketch
+  var cv = document.getElementById('viz'), ctx = cv.getContext('2d');
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var W, H, CAP = 6, MINACTIVE = 2;
+  var pods = [], queue = [], t = 0, drops = 0, nextId = 0;
+  function css(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+  function resize() {
+    var r = cv.getBoundingClientRect(), d = window.devicePixelRatio || 1;
+    W = r.width; H = r.height; cv.width = W * d; cv.height = H * d; ctx.setTransform(d, 0, 0, d, 0, 0);
+  }
+  function addPod() { pods.push({ id: nextId++, state: 'active', sessions: [], x: null, alpha: 0 }); }
+  function seed() {
+    for (var i = 0; i < 4; i++) addPod();
+    pods.forEach(function (p, i) { p.alpha = 1; for (var k = 0; k < 2 + (i % 3); k++) p.sessions.push({ life: 200 + Math.random() * 500 }); });
+    for (var q = 0; q < 3; q++) queue.push({ wait: 0 });
+  }
+  function active() { return pods.filter(function (p) { return p.state === 'active'; }); }
+  function step() {
+    t++;
+    // arrivals: load wave
+    var rate = 0.05 + 0.04 * Math.sin(t / 260);
+    if (Math.random() < rate) queue.push({ wait: 0 });
+    // sessions finish
+    pods.forEach(function (p) { p.sessions.forEach(function (s) { s.life--; }); p.sessions = p.sessions.filter(function (s) { return s.life > 0; }); });
+    // allocate: least-loaded active pod with capacity
+    queue.forEach(function (s) { s.wait++; });
+    while (queue.length) {
+      var cand = active().filter(function (p) { return p.sessions.length < CAP; }).sort(function (a, b) { return a.sessions.length - b.sessions.length; })[0];
+      if (!cand) break;
+      queue.shift(); cand.sessions.push({ life: 260 + Math.random() * 520 });
+    }
+    // autoscaler every 60 ticks
+    if (t % 60 === 0) {
+      var act = active(), load = act.reduce(function (a, p) { return a + p.sessions.length; }, 0) + queue.length;
+      var util = load / (act.length * CAP);
+      if ((util > 0.75 || queue.length > 3) && pods.length < 9) addPod();
+      else if (util < 0.4 && act.length > MINACTIVE) {
+        var victim = act.slice().sort(function (a, b) { return a.sessions.length - b.sessions.length; })[0];
+        victim.state = 'draining';
+      }
+    }
+    // draining pods retire only when empty
+    pods.forEach(function (p) { if (p.state === 'draining' && p.sessions.length === 0) p.state = 'gone'; });
+    pods.forEach(function (p) { p.alpha += ((p.state === 'gone' ? 0 : 1) - p.alpha) * 0.08; });
+    pods = pods.filter(function (p) { return !(p.state === 'gone' && p.alpha < 0.02); });
+  }
+  function rr(x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
+  function draw() {
+    var ink = css('--ink'), acc = css('--accent'), drain = css('--drain'), muted = css('--muted'), rule = css('--rule');
+    ctx.clearRect(0, 0, W, H);
+    var qW = Math.min(150, W * 0.24), pad = 14;
+    // queue
+    ctx.fillStyle = muted; ctx.font = '11px "IBM Plex Mono", monospace'; ctx.fillText('queue', pad, 22);
+    var qn = Math.min(queue.length, 24);
+    for (var i = 0; i < qn; i++) {
+      var col = i % 6, row = Math.floor(i / 6);
+      ctx.fillStyle = acc; ctx.globalAlpha = 0.55 + 0.45 * Math.min(1, queue[i].wait / 40);
+      ctx.beginPath(); ctx.arc(pad + 6 + col * 16, 42 + row * 16, 4.5, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    // arrow
+    ctx.strokeStyle = rule; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(qW - 10, H / 2); ctx.lineTo(qW + 8, H / 2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(qW + 8, H / 2); ctx.lineTo(qW + 3, H / 2 - 4); ctx.lineTo(qW + 3, H / 2 + 4); ctx.closePath(); ctx.fillStyle = rule; ctx.fill();
+    // pods
+    var x0 = qW + 22, avail = W - x0 - pad, n = Math.max(pods.length, 1), gap = 8;
+    var pw = Math.min(64, (avail - gap * (n - 1)) / n), ph = H - 52;
+    pods.forEach(function (p, i) {
+      var tx = x0 + i * (pw + gap); p.x = p.x === null ? tx : p.x + (tx - p.x) * 0.12;
+      ctx.globalAlpha = p.alpha;
+      var c = p.state === 'active' ? ink : drain;
+      ctx.strokeStyle = c; ctx.lineWidth = 1.5; ctx.setLineDash(p.state === 'draining' ? [4, 3] : []);
+      rr(p.x, 30, pw, ph, 3); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle = c; ctx.font = '10.5px "IBM Plex Mono", monospace';
+      ctx.fillText(p.state === 'draining' ? 'drain' : 'pod-' + p.id, p.x + 2, 22);
+      var sh = (ph - 10) / CAP;
+      p.sessions.forEach(function (s, k) {
+        ctx.fillStyle = p.state === 'draining' ? drain : acc;
+        rr(p.x + 5, 30 + ph - 5 - (k + 1) * sh + 2, pw - 10, sh - 4, 2); ctx.fill();
+      });
+      ctx.globalAlpha = 1;
+    });
+    document.getElementById('m-active').textContent = active().length;
+    document.getElementById('m-drain').textContent = pods.filter(function (p) { return p.state === 'draining'; }).length;
+    document.getElementById('m-sess').textContent = pods.reduce(function (a, p) { return a + p.sessions.length; }, 0);
+    document.getElementById('m-drop').textContent = drops;
+  }
+  resize(); seed();
+  if (reduce) { for (var i = 0; i < 400; i++) step(); draw(); }
+  else { for (var j = 0; j < 120; j++) step(); (function loop() { step(); step(); draw(); requestAnimationFrame(loop); })(); }
+  window.addEventListener('resize', function () { resize(); draw(); });
+})();
+</script>
+</body>
+</html>
