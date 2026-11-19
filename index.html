@@ -49,6 +49,7 @@ a:hover { text-decoration-thickness: 2px; }
 a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
 h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; margin: 0; }
 .mono { font-family: var(--font-mono); }
+section[id] { scroll-margin-top: 16px; }
 .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
 
 /* Top bar */
@@ -375,6 +376,17 @@ footer { padding: 0 0 40px; font-family: var(--font-mono); font-size: 12px; colo
 
 <script>
 (function () {
+  // In-page links: scroll explicitly so they work inside embedded viewers too
+  document.querySelectorAll('a[href^="#"]').forEach(function (l) {
+    l.addEventListener('click', function (e) {
+      var el = document.getElementById(l.getAttribute('href').slice(1));
+      if (!el) return;
+      e.preventDefault();
+      var smooth = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      el.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto', block: 'start' });
+    });
+  });
+
   // Scheduler sketch
   var cv = document.getElementById('viz'), ctx = cv.getContext('2d');
   var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
